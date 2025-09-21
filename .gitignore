@@ -1,0 +1,60 @@
+# Node / General
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Logs
+logs/
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# TypeScript
+*.tsbuildinfo
+
+# Env files
+.env
+.env.*.local
+backend/.env
+frontend/.env
+
+# Build outputs / Caches
+dist/
+build/
+tmp/
+temp/
+*.tmp
+
+# Frontend (Vite/React)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.cache/
+
+# Backend (Node)
+backend/node_modules/
+backend/dist/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Docker / Compose overrides
+docker-compose.override.yml
+*.local.yml
+
+# Local DB data (if created outside Docker named volumes)
+pgdata/
+postgres-data/
+db-data/
+data/
+
