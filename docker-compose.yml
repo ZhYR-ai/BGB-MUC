@@ -28,6 +28,12 @@ services:
       JWT_SECRET: your-secret-key-change-in-production
       NODE_ENV: development
       FRONTEND_URL: http://localhost:3000
+      # SMTP config (set with your provider)
+      # SMTP_HOST: smtp.mailtrap.io
+      # SMTP_PORT: 2525
+      # SMTP_USER: your_user
+      # SMTP_PASS: your_pass
+      # EMAIL_FROM: "Event Platform <no-reply@yourdomain.com>"
     depends_on:
       - database
     volumes:

@@ -1,9 +1,8 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { useMutation } from '@apollo/client';
 import toast from 'react-hot-toast';
-import { LOGIN } from '../lib/graphql/mutations';
+import { postJson } from '../lib/rest';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 
@@ -17,23 +16,23 @@ const LoginPage: React.FC = () => {
   const { login } = useAuth();
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>();
   
-  const [loginMutation, { loading }] = useMutation(LOGIN, {
-    onCompleted: (data) => {
-      login(data.login.token, data.login.user);
+  const [loading, setLoading] = React.useState(false);
+
+  const onSubmit = async (data: LoginFormData) => {
+    try {
+      setLoading(true);
+      const resp = await postJson<{ token: string; user: any }>(
+        '/auth/login',
+        { email: data.email, password: data.password }
+      );
+      login(resp.token, resp.user);
       toast.success('Welcome back!');
       navigate('/dashboard');
-    },
-    onError: (error) => {
-      toast.error(error.message || 'Login failed');
+    } catch (e: any) {
+      toast.error(e.message || 'Login failed');
+    } finally {
+      setLoading(false);
     }
-  });
-
-  const onSubmit = (data: LoginFormData) => {
-    loginMutation({
-      variables: {
-        input: data
-      }
-    });
   };
 
   return (

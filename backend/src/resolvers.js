@@ -20,6 +20,8 @@ const UUIDType = new GraphQLScalarType({
   parseLiteral: (ast) => ast.kind === Kind.STRING ? ast.value : null
 });
 
+const { sendResetEmail } = require('./email');
+
 const resolvers = {
   DateTime: DateTimeType,
   UUID: UUIDType,
@@ -214,8 +216,8 @@ const resolvers = {
         const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
         const resetUrl = `${frontendBase}/reset-password?token=${rawToken}`;
 
-        // In this setup, we log the link for dev/testing
-        console.log(`Password reset requested for ${user.email}. Reset URL: ${resetUrl}`);
+        // Send email if SMTP is configured; otherwise it will log
+        await sendResetEmail(user.email, resetUrl);
 
         return genericResponse;
       } catch (e) {
@@ -365,6 +367,14 @@ const resolvers = {
 
   // Field resolvers
   User: {
+    // Scalar mappings from snake_case to camelCase
+    firstName: (parent) => parent.first_name ?? parent.firstName,
+    lastName: (parent) => parent.last_name ?? parent.lastName,
+    email: (parent) => parent.email,
+    isAdmin: (parent) => (typeof parent.is_admin !== 'undefined' ? parent.is_admin : parent.isAdmin),
+    hostedEventsCount: (parent) => parent.hosted_events_count ?? parent.hostedEventsCount ?? 0,
+    createdAt: (parent) => parent.created_at ?? parent.createdAt,
+    updatedAt: (parent) => parent.updated_at ?? parent.updatedAt,
     tags: async (parent, _, { db }) => {
       const result = await db.query(`
         SELECT t.* FROM tags t
@@ -394,6 +404,13 @@ const resolvers = {
   },
 
   Event: {
+    // Scalar mappings for event fields
+    maxParticipants: (parent) => parent.max_participants ?? parent.maxParticipants,
+    eventDate: (parent) => parent.event_date ?? parent.eventDate,
+    isPublic: (parent) => (typeof parent.is_public !== 'undefined' ? parent.is_public : parent.isPublic),
+    games: (parent) => parent.games || [],
+    createdAt: (parent) => parent.created_at ?? parent.createdAt,
+    updatedAt: (parent) => parent.updated_at ?? parent.updatedAt,
     owner: async (parent, _, { db }) => {
       const result = await db.query('SELECT * FROM users WHERE id = $1', [parent.owner_id]);
       return result.rows[0];
@@ -443,6 +460,8 @@ const resolvers = {
   },
 
   Comment: {
+    createdAt: (parent) => parent.created_at ?? parent.createdAt,
+    updatedAt: (parent) => parent.updated_at ?? parent.updatedAt,
     event: async (parent, _, { db }) => {
       const result = await db.query('SELECT * FROM events WHERE id = $1', [parent.event_id]);
       return result.rows[0];
@@ -466,6 +485,22 @@ const resolvers = {
       );
       return result.rows;
     }
+  }
+  ,
+  Tag: {
+    createdAt: (parent) => parent.created_at ?? parent.createdAt,
+  },
+  UserReport: {
+    reporter: async (parent, _, { db }) => {
+      const result = await db.query('SELECT * FROM users WHERE id = $1', [parent.reporter_id || parent.reporter?.id]);
+      return result.rows[0] || parent.reporter;
+    },
+    reportedUser: async (parent, _, { db }) => {
+      const result = await db.query('SELECT * FROM users WHERE id = $1', [parent.reported_user_id || parent.reportedUser?.id]);
+      return result.rows[0] || parent.reportedUser;
+    },
+    isBlocked: (parent) => (typeof parent.is_blocked !== 'undefined' ? parent.is_blocked : parent.isBlocked),
+    createdAt: (parent) => parent.created_at ?? parent.createdAt,
   }
 };
 

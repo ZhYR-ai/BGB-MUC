@@ -1,9 +1,8 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { useMutation } from '@apollo/client';
 import toast from 'react-hot-toast';
-import { REGISTER } from '../lib/graphql/mutations';
+import { postJson } from '../lib/rest';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 
@@ -20,24 +19,24 @@ const RegisterPage: React.FC = () => {
   const { login } = useAuth();
   const { register, handleSubmit, formState: { errors }, watch } = useForm<RegisterFormData>();
   
-  const [registerMutation, { loading }] = useMutation(REGISTER, {
-    onCompleted: (data) => {
-      login(data.register.token, data.register.user);
+  const [loading, setLoading] = React.useState(false);
+
+  const onSubmit = async (data: RegisterFormData) => {
+    const { confirmPassword, ...registerData } = data;
+    try {
+      setLoading(true);
+      const resp = await postJson<{ token: string; user: any }>(
+        '/auth/register',
+        registerData
+      );
+      login(resp.token, resp.user);
       toast.success('Account created successfully!');
       navigate('/dashboard');
-    },
-    onError: (error) => {
-      toast.error(error.message || 'Registration failed');
+    } catch (e: any) {
+      toast.error(e.message || 'Registration failed');
+    } finally {
+      setLoading(false);
     }
-  });
-
-  const onSubmit = (data: RegisterFormData) => {
-    const { confirmPassword, ...registerData } = data;
-    registerMutation({
-      variables: {
-        input: registerData
-      }
-    });
   };
 
   const password = watch('password');

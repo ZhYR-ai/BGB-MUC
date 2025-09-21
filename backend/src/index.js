@@ -1,6 +1,7 @@
 const express = require('express');
 const { ApolloServer } = require('apollo-server-express');
 const cors = require('cors');
+const bodyParser = require('express').json;
 require('dotenv').config();
 
 const typeDefs = require('./schema');
@@ -15,11 +16,17 @@ async function startServer() {
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true
   }));
+  // Parse JSON bodies for REST endpoints
+  app.use(bodyParser());
 
   // Health check endpoint
   app.get('/health', (req, res) => {
     res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
   });
+
+  // REST routes
+  const authRouter = require('./routes/auth');
+  app.use('/auth', authRouter);
 
   // Create Apollo Server
   const server = new ApolloServer({

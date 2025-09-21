@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { useMutation } from '@apollo/client';
 import toast from 'react-hot-toast';
-import { RESET_PASSWORD } from '../lib/graphql/mutations';
+import { postJson } from '../lib/rest';
 import { useAuth } from '../contexts/AuthContext';
 
 interface FormData {
@@ -18,23 +17,27 @@ const ResetPasswordPage: React.FC = () => {
   const { login } = useAuth();
   const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>();
 
-  const [resetPassword, { loading }] = useMutation(RESET_PASSWORD, {
-    onCompleted: ({ resetPassword }) => {
-      login(resetPassword.token, resetPassword.user);
-      toast.success('Password updated. You are now signed in.');
-      navigate('/dashboard');
-    },
-    onError: (error) => {
-      toast.error(error.message || 'Reset failed');
-    }
-  });
+  const [loading, setLoading] = React.useState(false);
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     if (!token) {
       toast.error('Missing reset token');
       return;
     }
-    resetPassword({ variables: { token, newPassword: data.password } });
+    try {
+      setLoading(true);
+      const resp = await postJson<{ token: string; user: any }>(
+        '/auth/reset-password',
+        { token, newPassword: data.password }
+      );
+      login(resp.token, resp.user);
+      toast.success('Password updated. You are now signed in.');
+      navigate('/dashboard');
+    } catch (e: any) {
+      toast.error(e.message || 'Reset failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -95,4 +98,3 @@ const ResetPasswordPage: React.FC = () => {
 };
 
 export default ResetPasswordPage;
-

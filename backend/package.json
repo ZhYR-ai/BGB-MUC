@@ -19,7 +19,8 @@
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
     "uuid": "^9.0.0",
-    "graphql-scalars": "^1.21.3"
+    "graphql-scalars": "^1.21.3",
+    "nodemailer": "^6.9.11"
   },
   "devDependencies": {
     "nodemon": "^2.0.22",

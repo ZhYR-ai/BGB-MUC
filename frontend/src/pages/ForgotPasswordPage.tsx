@@ -1,8 +1,7 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { useMutation } from '@apollo/client';
 import toast from 'react-hot-toast';
-import { REQUEST_PASSWORD_RESET } from '../lib/graphql/mutations';
+import { postJson } from '../lib/rest';
 import { Link } from 'react-router-dom';
 
 interface FormData {
@@ -11,18 +10,21 @@ interface FormData {
 
 const ForgotPasswordPage: React.FC = () => {
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>();
-  const [requestReset, { loading }] = useMutation(REQUEST_PASSWORD_RESET, {
-    onCompleted: () => {
-      toast.success('If an account exists, a reset link was sent.');
-    },
-    onError: () => {
-      // Show generic success to avoid enumeration differences
-      toast.success('If an account exists, a reset link was sent.');
-    }
-  });
+  const [loading, setLoading] = React.useState(false);
 
-  const onSubmit = (data: FormData) => {
-    requestReset({ variables: { email: data.email } });
+  const onSubmit = async (data: FormData) => {
+    try {
+      setLoading(true);
+      await postJson<{ success: boolean }>(
+        '/auth/request-password-reset',
+        { email: data.email }
+      );
+      toast.success('If an account exists, a reset link was sent.');
+    } catch {
+      toast.success('If an account exists, a reset link was sent.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -71,4 +73,3 @@ const ForgotPasswordPage: React.FC = () => {
 };
 
 export default ForgotPasswordPage;
-
