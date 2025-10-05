@@ -1,39 +1,62 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { useMutation } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import toast from 'react-hot-toast';
-import { CREATE_EVENT } from '../lib/graphql/mutations';
-import { GET_MY_EVENTS, GET_PUBLIC_EVENTS } from '../lib/graphql/queries';
+import { format } from 'date-fns';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { GET_EVENT, GET_MY_EVENTS, GET_PUBLIC_EVENTS } from '../lib/graphql/queries';
+import { UPDATE_EVENT } from '../lib/graphql/mutations';
 import { PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
-interface CreateEventFormData {
+interface EditEventFormData {
   name: string;
   description: string;
   location: string;
-  maxParticipants: number;
+  maxParticipants: number | null;
   eventDate: string;
   isPublic: boolean;
 }
 
-const CreateEventPage: React.FC = () => {
+const EditEventPage: React.FC = () => {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
   const [games, setGames] = useState<string[]>([]);
   const [gameInput, setGameInput] = useState('');
-  
-  const { register, handleSubmit, formState: { errors } } = useForm<CreateEventFormData>();
-  
-  const [createEvent, { loading }] = useMutation(CREATE_EVENT, {
-    onCompleted: (data) => {
-      toast.success('Event created successfully!');
-      navigate(`/events/${data.createEvent.id}`);
+
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<EditEventFormData>({
+    defaultValues: {
+      isPublic: true,
     },
-    onError: (error) => {
-      toast.error(error.message || 'Failed to create event');
-    },
-    refetchQueries: [{ query: GET_MY_EVENTS }, { query: GET_PUBLIC_EVENTS }]
   });
+
+  const { data, loading, error } = useQuery(GET_EVENT, {
+    variables: { id },
+    skip: !id,
+    fetchPolicy: 'network-only',
+  });
+
+  const [updateEvent, { loading: saving }] = useMutation(UPDATE_EVENT, {
+    refetchQueries: [
+      { query: GET_EVENT, variables: { id } },
+      { query: GET_MY_EVENTS },
+      { query: GET_PUBLIC_EVENTS },
+    ],
+    awaitRefetchQueries: true,
+  });
+
+  useEffect(() => {
+    if (data?.event) {
+      const event = data.event;
+      setValue('name', event.name);
+      setValue('description', event.description || '');
+      setValue('location', event.location || '');
+      setValue('maxParticipants', event.maxParticipants ?? null);
+      setValue('isPublic', event.isPublic);
+      setValue('eventDate', format(new Date(event.eventDate), "yyyy-MM-dd'T'HH:mm"));
+      setGames(event.games || []);
+    }
+  }, [data, setValue]);
 
   const addGame = () => {
     if (gameInput.trim() && !games.includes(gameInput.trim())) {
@@ -46,25 +69,44 @@ const CreateEventPage: React.FC = () => {
     setGames(games.filter(game => game !== gameToRemove));
   };
 
-  const onSubmit = (data: CreateEventFormData) => {
-    createEvent({
-      variables: {
-        input: {
-          ...data,
-          eventDate: new Date(data.eventDate).toISOString(),
-          maxParticipants: data.maxParticipants || null,
-          games
-        }
-      }
-    });
+  const onSubmit = async (formData: EditEventFormData) => {
+    if (!id) return;
+
+    try {
+      const maxParticipants = formData.maxParticipants ? formData.maxParticipants : null;
+
+      await updateEvent({
+        variables: {
+          id,
+          input: {
+            name: formData.name,
+            description: formData.description || null,
+            location: formData.location || null,
+            maxParticipants,
+            eventDate: new Date(formData.eventDate).toISOString(),
+            isPublic: formData.isPublic,
+            games,
+          },
+        },
+      });
+      toast.success('Event updated successfully!');
+      navigate(`/events/${id}`);
+    } catch (mutationError) {
+      const message = mutationError instanceof Error ? mutationError.message : 'Failed to update event';
+      toast.error(message);
+    }
   };
+
+  if (loading) return <LoadingSpinner className="py-12" />;
+  if (error) return <div className="text-center py-12 text-red-600">Error loading event</div>;
+  if (!data?.event) return <div className="text-center py-12">Event not found</div>;
 
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Create New Event</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Edit Event</h1>
         <p className="text-gray-600 mt-2">
-          Set up a gaming event and invite others to join
+          Update the details of your event
         </p>
       </div>
 
@@ -108,7 +150,7 @@ const CreateEventPage: React.FC = () => {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label htmlFor="eventDate" className="block text-sm font-medium text-gray-700">
               Date & Time *
@@ -128,9 +170,9 @@ const CreateEventPage: React.FC = () => {
               Max Participants
             </label>
             <input
-              {...register('maxParticipants', { 
+              {...register('maxParticipants', {
                 min: { value: 1, message: 'Must be at least 1' },
-                valueAsNumber: true 
+                valueAsNumber: true,
               })}
               type="number"
               className="input-field mt-1"
@@ -190,7 +232,6 @@ const CreateEventPage: React.FC = () => {
             type="checkbox"
             id="isPublic"
             className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-            defaultChecked={true}
           />
           <label htmlFor="isPublic" className="ml-2 block text-sm text-gray-900">
             Make this event public (visible to all users)
@@ -200,22 +241,15 @@ const CreateEventPage: React.FC = () => {
         <div className="flex gap-4 pt-4">
           <button
             type="submit"
-            disabled={loading}
-            className="btn-primary flex-1 flex justify-center items-center"
+            disabled={saving}
+            className="btn-primary flex-1 flex justify-center items-center disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {loading ? (
-              <>
-                <LoadingSpinner size="sm" className="mr-2" />
-                Creating...
-              </>
-            ) : (
-              'Create Event'
-            )}
+            {saving ? 'Saving…' : 'Save Changes'}
           </button>
           <button
             type="button"
-            onClick={() => navigate('/dashboard')}
-            className="btn-secondary"
+            className="btn-outline flex-1"
+            onClick={() => navigate(-1)}
           >
             Cancel
           </button>
@@ -225,4 +259,4 @@ const CreateEventPage: React.FC = () => {
   );
 };
 
-export default CreateEventPage;
+export default EditEventPage;

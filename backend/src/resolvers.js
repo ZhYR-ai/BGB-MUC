@@ -291,6 +291,79 @@ const resolvers = {
       return result.rows[0];
     },
 
+    updateEvent: async (_, { id, input }, { db, user, isAuthenticated, isAdmin }) => {
+      if (!isAuthenticated) throw new AuthenticationError('Not authenticated');
+
+      const existingRes = await db.query('SELECT * FROM events WHERE id = $1', [id]);
+      const existing = existingRes.rows[0];
+
+      if (!existing) {
+        throw new UserInputError('Event not found');
+      }
+
+      if (existing.owner_id !== user.id && !isAdmin) {
+        throw new ForbiddenError('Not authorized to update this event');
+      }
+
+      const columnMap = {
+        name: 'name',
+        description: 'description',
+        location: 'location',
+        maxParticipants: 'max_participants',
+        eventDate: 'event_date',
+        isPublic: 'is_public',
+        games: 'games',
+      };
+
+      const values = [id];
+      const setClauses = [];
+
+      for (const [key, column] of Object.entries(columnMap)) {
+        if (Object.prototype.hasOwnProperty.call(input, key)) {
+          let value = input[key];
+
+          if (key === 'eventDate' && value) {
+            value = new Date(value);
+          }
+
+          values.push(value);
+          setClauses.push(`${column} = $${values.length}`);
+        }
+      }
+
+      if (setClauses.length === 0) {
+        return existing;
+      }
+
+      const updateQuery = `
+        UPDATE events
+        SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        RETURNING *
+      `;
+
+      const result = await db.query(updateQuery, values);
+      return result.rows[0];
+    },
+
+    deleteEvent: async (_, { id }, { db, user, isAuthenticated, isAdmin }) => {
+      if (!isAuthenticated) throw new AuthenticationError('Not authenticated');
+
+      const existingRes = await db.query('SELECT owner_id FROM events WHERE id = $1', [id]);
+      const existing = existingRes.rows[0];
+
+      if (!existing) {
+        throw new UserInputError('Event not found');
+      }
+
+      if (existing.owner_id !== user.id && !isAdmin) {
+        throw new ForbiddenError('Not authorized to delete this event');
+      }
+
+      await db.query('DELETE FROM events WHERE id = $1', [id]);
+      return true;
+    },
+
     joinEvent: async (_, { eventId }, { db, user, isAuthenticated }) => {
       if (!isAuthenticated) throw new AuthenticationError('Not authenticated');
       

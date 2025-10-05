@@ -1,16 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import { 
   CalendarIcon, 
   UsersIcon, 
   PlusIcon,
   ClockIcon
 } from '@heroicons/react/24/outline';
-import { GET_MY_EVENTS, GET_MY_PARTICIPATING_EVENTS } from '../lib/graphql/queries';
+import toast from 'react-hot-toast';
+import { GET_MY_EVENTS, GET_MY_PARTICIPATING_EVENTS, GET_PUBLIC_EVENTS } from '../lib/graphql/queries';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { format } from 'date-fns';
+import { DELETE_EVENT } from '../lib/graphql/mutations';
 
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
@@ -18,10 +20,36 @@ const DashboardPage: React.FC = () => {
   const { data: myEventsData, loading: myEventsLoading } = useQuery(GET_MY_EVENTS);
   const { data: participatingData, loading: participatingLoading } = useQuery(GET_MY_PARTICIPATING_EVENTS);
 
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [deleteEventMutation] = useMutation(DELETE_EVENT, {
+    refetchQueries: [
+      { query: GET_MY_EVENTS },
+      { query: GET_PUBLIC_EVENTS },
+      { query: GET_MY_PARTICIPATING_EVENTS },
+    ],
+    awaitRefetchQueries: true,
+  });
+
   const myEvents = myEventsData?.myEvents || [];
   const participatingEvents = participatingData?.myParticipatingEvents || [];
 
   const loading = myEventsLoading || participatingLoading;
+
+  const handleDeleteEvent = async (eventId: string) => {
+    const confirmed = window.confirm('Are you sure you want to delete this event?');
+    if (!confirmed) return;
+
+    try {
+      setDeletingEventId(eventId);
+      await deleteEventMutation({ variables: { id: eventId } });
+      toast.success('Event deleted successfully');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete event';
+      toast.error(message);
+    } finally {
+      setDeletingEventId(null);
+    }
+  };
 
   if (loading) return <LoadingSpinner className="py-12" />;
 
@@ -161,8 +189,24 @@ const DashboardPage: React.FC = () => {
                     to={`/events/${event.id}`}
                     className="block w-full text-center btn-outline"
                   >
-                    Manage Event
+                    View Details
                   </Link>
+                  <div className="flex gap-2">
+                    <Link 
+                      to={`/events/${event.id}/edit`}
+                      className="btn-primary flex-1 text-center"
+                    >
+                      Edit
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteEvent(event.id)}
+                      className="btn-danger flex-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                      disabled={deletingEventId === event.id}
+                    >
+                      {deletingEventId === event.id ? 'Deleting…' : 'Delete'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

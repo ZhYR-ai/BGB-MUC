@@ -14,6 +14,7 @@ import RegisterPage from './pages/RegisterPage';
 import EventsPage from './pages/EventsPage';
 import EventDetailPage from './pages/EventDetailPage';
 import CreateEventPage from './pages/CreateEventPage';
+import EditEventPage from './pages/EditEventPage';
 import ProfilePage from './pages/ProfilePage';
 import DashboardPage from './pages/DashboardPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -110,6 +111,14 @@ const AppContent: React.FC = () => {
                 <CreateEventPage />
               </ProtectedRoute>
             } 
+          />
+          <Route 
+            path="/events/:id/edit" 
+            element={
+              <ProtectedRoute>
+                <EditEventPage />
+              </ProtectedRoute>
+            }
           />
           <Route 
             path="/profile" 

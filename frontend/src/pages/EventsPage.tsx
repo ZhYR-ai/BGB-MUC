@@ -17,7 +17,11 @@ const EventsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGame, setSelectedGame] = useState('');
   
-  const { data, loading, error } = useQuery(GET_PUBLIC_EVENTS);
+  const { data, loading, error } = useQuery(GET_PUBLIC_EVENTS, {
+    // Trigger a background refetch so newly created events appear instantly.
+    fetchPolicy: 'cache-and-network',
+    nextFetchPolicy: 'cache-first',
+  });
 
   const events = data?.publicEvents || [];
   

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useQuery } from '@apollo/client';
+import { useApolloClient, useQuery } from '@apollo/client';
 import { GET_ME } from '../lib/graphql/queries';
 
 interface User {
@@ -39,6 +39,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [user, setUser] = useState<User | null>(null);
+  const apolloClient = useApolloClient();
 
   const { data, loading, error } = useQuery(GET_ME, {
     skip: !token,
@@ -58,12 +59,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.setItem('token', newToken);
     setToken(newToken);
     setUser(userData);
+    // Clear cached data so queries like GET_ME refetch for the new user.
+    apolloClient.clearStore().catch(() => {});
   };
 
   const logout = () => {
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
+    apolloClient.clearStore().catch(() => {});
   };
 
   const value: AuthContextType = {
