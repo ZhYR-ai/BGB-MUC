@@ -32,7 +32,8 @@ const EventsPage: React.FC = () => {
     }
     return games;
   }, []);
-  const uniqueGames = Array.from(new Set(allGames)).sort();
+  const uniqueGames = Array.from(new Set(allGames)) as string[];
+  uniqueGames.sort();
 
   // Filter events
   const filteredEvents = events.filter((event: any) => {

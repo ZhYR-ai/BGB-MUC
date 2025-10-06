@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { useMutation, useQuery } from '@apollo/client';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -8,6 +8,8 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { GET_EVENT, GET_MY_EVENTS, GET_PUBLIC_EVENTS } from '../lib/graphql/queries';
 import { UPDATE_EVENT } from '../lib/graphql/mutations';
 import { PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import LocationAutocompleteInput from '../components/events/LocationAutocompleteInput';
+import LocationMapWidget from '../components/events/LocationMapWidget';
 
 interface EditEventFormData {
   name: string;
@@ -24,16 +26,22 @@ const EditEventPage: React.FC = () => {
   const [games, setGames] = useState<string[]>([]);
   const [gameInput, setGameInput] = useState('');
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<EditEventFormData>({
+  const { register, handleSubmit, setValue, control, watch, formState: { errors } } = useForm<EditEventFormData>({
     defaultValues: {
       isPublic: true,
+      location: '',
     },
   });
+  const locationValue = watch('location', '');
 
   const { data, loading, error } = useQuery(GET_EVENT, {
     variables: { id },
     skip: !id,
     fetchPolicy: 'network-only',
+  });
+  const { data: publicEventsData } = useQuery(GET_PUBLIC_EVENTS, {
+    fetchPolicy: 'cache-first',
+    nextFetchPolicy: 'cache-first',
   });
 
   const [updateEvent, { loading: saving }] = useMutation(UPDATE_EVENT, {
@@ -97,6 +105,22 @@ const EditEventPage: React.FC = () => {
     }
   };
 
+  const locationSuggestions = React.useMemo(() => {
+    const events = publicEventsData?.publicEvents ?? [];
+    const unique = new Set<string>();
+    events.forEach((eventItem: { location?: string | null }) => {
+      if (eventItem.location && eventItem.location.trim()) {
+        unique.add(eventItem.location.trim());
+      }
+    });
+
+    if (data?.event?.location) {
+      unique.add(data.event.location.trim());
+    }
+
+    return Array.from(unique).sort((a, b) => a.localeCompare(b));
+  }, [publicEventsData, data?.event?.location]);
+
   if (loading) return <LoadingSpinner className="py-12" />;
   if (error) return <div className="text-center py-12 text-red-600">Error loading event</div>;
   if (!data?.event) return <div className="text-center py-12">Event not found</div>;
@@ -142,12 +166,18 @@ const EditEventPage: React.FC = () => {
           <label htmlFor="location" className="block text-sm font-medium text-gray-700">
             Location
           </label>
-          <input
-            {...register('location')}
-            type="text"
-            className="input-field mt-1"
-            placeholder="Enter location or 'Online'"
+          <Controller
+            name="location"
+            control={control}
+            render={({ field }) => (
+              <LocationAutocompleteInput
+                {...field}
+                placeholder="Enter location or 'Online'"
+                options={locationSuggestions}
+              />
+            )}
           />
+          <LocationMapWidget location={locationValue} />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

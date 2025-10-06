@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { useMutation } from '@apollo/client';
+import { Controller, useForm } from 'react-hook-form';
+import { useMutation, useQuery } from '@apollo/client';
 import toast from 'react-hot-toast';
 import { CREATE_EVENT } from '../lib/graphql/mutations';
 import { GET_MY_EVENTS, GET_PUBLIC_EVENTS } from '../lib/graphql/queries';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import LocationMapWidget from '../components/events/LocationMapWidget';
+import LocationAutocompleteInput from '../components/events/LocationAutocompleteInput';
 
 interface CreateEventFormData {
   name: string;
@@ -22,7 +24,27 @@ const CreateEventPage: React.FC = () => {
   const [games, setGames] = useState<string[]>([]);
   const [gameInput, setGameInput] = useState('');
   
-  const { register, handleSubmit, formState: { errors } } = useForm<CreateEventFormData>();
+  const { register, handleSubmit, formState: { errors }, watch, control } = useForm<CreateEventFormData>({
+    defaultValues: {
+      location: '',
+    },
+  });
+  const locationValue = watch('location', '');
+  const { data: publicEventsData } = useQuery(GET_PUBLIC_EVENTS, {
+    fetchPolicy: 'cache-first',
+    nextFetchPolicy: 'cache-first',
+  });
+
+  const locationSuggestions = React.useMemo(() => {
+    const events = publicEventsData?.publicEvents ?? [];
+    const unique = new Set<string>();
+    events.forEach((event: { location?: string | null }) => {
+      if (event.location && event.location.trim()) {
+        unique.add(event.location.trim());
+      }
+    });
+    return Array.from(unique).sort((a, b) => a.localeCompare(b));
+  }, [publicEventsData]);
   
   const [createEvent, { loading }] = useMutation(CREATE_EVENT, {
     onCompleted: (data) => {
@@ -100,12 +122,18 @@ const CreateEventPage: React.FC = () => {
           <label htmlFor="location" className="block text-sm font-medium text-gray-700">
             Location
           </label>
-          <input
-            {...register('location')}
-            type="text"
-            className="input-field mt-1"
-            placeholder="Enter location or 'Online'"
+          <Controller
+            name="location"
+            control={control}
+            render={({ field }) => (
+              <LocationAutocompleteInput
+                {...field}
+                placeholder="Enter location or 'Online'"
+                options={locationSuggestions}
+              />
+            )}
           />
+          <LocationMapWidget location={locationValue} />
         </div>
 
         <div className="grid grid-cols-2 gap-4">

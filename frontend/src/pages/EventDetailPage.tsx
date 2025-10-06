@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
 import { GET_EVENT } from '../lib/graphql/queries';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import LocationMapWidget from '../components/events/LocationMapWidget';
 
 const EventDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +17,9 @@ const EventDetailPage: React.FC = () => {
   if (!data?.event) return <div className="text-center py-12">Event not found</div>;
 
   const event = data.event;
+  const googleMapsUrl = event.location
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`
+    : null;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -28,7 +32,21 @@ const EventDetailPage: React.FC = () => {
             <h3 className="font-semibold text-gray-900 mb-2">Event Details</h3>
             <div className="space-y-2 text-sm text-gray-600">
               <p><strong>Date:</strong> {new Date(event.eventDate).toLocaleDateString()}</p>
-              <p><strong>Location:</strong> {event.location || 'Online'}</p>
+              <p>
+                <strong>Location:</strong>{' '}
+                {event.location ? (
+                  <a
+                    href={googleMapsUrl!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary-600 hover:text-primary-700 font-medium"
+                  >
+                    {event.location}
+                  </a>
+                ) : (
+                  'Online'
+                )}
+              </p>
               <p><strong>Participants:</strong> {event.participantCount}{event.maxParticipants && ` / ${event.maxParticipants}`}</p>
               <p><strong>Status:</strong> {event.isPublic ? 'Public' : 'Private'}</p>
             </div>
@@ -55,6 +73,13 @@ const EventDetailPage: React.FC = () => {
                 </span>
               ))}
             </div>
+          </div>
+        )}
+
+        {event.location && (
+          <div className="mt-6">
+            <h3 className="font-semibold text-gray-900 mb-2">Location Map</h3>
+            <LocationMapWidget location={event.location} />
           </div>
         )}
       </div>
